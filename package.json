@@ -1,0 +1,16 @@
+{
+  "name": "pmp-2026-practice-simulator",
+  "version": "1.0.0",
+  "description": "Independent July 2026 PMP practice simulator with four complete original forms",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix frontend test && node --test tests/netlify/*.test.mjs",
+    "lint": "npm --prefix frontend run lint"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
