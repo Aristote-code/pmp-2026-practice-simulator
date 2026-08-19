@@ -70,6 +70,8 @@ export interface ExamSession {
   currentIndex: number
   sectionIndex: number
   answers: Record<string, PmpAnswer>
+  submitted?: number[]
+  feedback?: Record<string, string>
   flags: number[]
   eliminated: Record<string, string[]>
   pointMarkers: Record<string, PointMarker>

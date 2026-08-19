@@ -11,7 +11,8 @@ An independent practice application aligned to the PMP Examination Content Outli
 - Permanent section locks after each break
 - Single response, multiple response, matching, enhanced matching, graphic, point-and-click, and pull-down interactions
 - Flags, navigator, strikeout, highlighting, calculator, and notes
-- Strict simulation and guided-study modes
+- Untimed learning mode with answer-by-answer correctness and AI explanations
+- Strict timed simulation mode for full exam practice
 - Exact answer-key scoring with ten hidden practice pretest positions
 - Domain, delivery-approach, and item-format diagnostics
 - Optional Groq coaching that explains answers without changing scores

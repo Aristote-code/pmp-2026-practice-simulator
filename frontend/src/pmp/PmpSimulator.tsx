@@ -118,13 +118,13 @@ function Library({ bank, saved, onStart, onResume }: {
     <header className="home-header"><Brand /><div className="unofficial-badge">Independent practice · not affiliated with PMI or Pearson VUE</div></header>
     <main className="home-main">
       <section className="library-intro">
-        <div><p className="pmp-eyebrow">PMP examination practice</p><h1>Choose a complete simulation</h1><p>Four original 180-question forms aligned to the July 2026 content outline, including case studies and interactive item types.</p></div>
+        <div><p className="pmp-eyebrow">PMP examination practice</p><h1>Choose how you want to practice</h1><p>Learn one question at a time with immediate explanations, or use strict simulation when you are ready for a complete timed attempt.</p></div>
         <div className="blueprint-facts">
           <span><strong>180</strong> questions</span><span><strong>240</strong> minutes</span><span><strong>2</strong> breaks</span><span><strong>8</strong> formats</span>
         </div>
       </section>
       {saved && saved.screen !== 'results' && <section className="resume-band">
-        <div><Play size={22} /><span><strong>Practice Test {saved.formId} is in progress</strong><small>Question {saved.currentIndex + 1} of 180 · {saved.mode === 'simulation' ? 'Strict simulation' : 'Guided study'}</small></span></div>
+        <div><Play size={22} /><span><strong>Practice Test {saved.formId} is in progress</strong><small>Question {saved.currentIndex + 1} of 180 · {saved.mode === 'simulation' ? 'Strict simulation' : 'Learning mode'}</small></span></div>
         <button className="pmp-primary" onClick={onResume}>Resume <ArrowRight size={17} /></button>
       </section>}
       <section className="form-list" aria-label="Practice tests">
@@ -132,8 +132,8 @@ function Library({ bank, saved, onStart, onResume }: {
           <div className="form-number">{formId}</div>
           <div className="form-copy"><h2>Practice Test {formId}</h2><p>{form.cases.length} linked case studies · {form.questions.filter((q) => q.qformat === 'Multiple-response').length} multiple-response · {form.questions.filter((q) => q.visual_html).length} exhibits</p><div className="domain-strip"><span style={{ width: '33%' }}>People 33%</span><span style={{ width: '41%' }}>Process 41%</span><span style={{ width: '26%' }}>Business 26%</span></div></div>
           <div className="form-actions">
-            <button className="pmp-primary" onClick={() => onStart(formId, 'simulation')}><Clock3 size={17} /> Full simulation</button>
-            <button className="pmp-secondary" onClick={() => onStart(formId, 'study')}><BookOpenCheck size={17} /> Guided study</button>
+            <button className="pmp-primary" onClick={() => onStart(formId, 'study')}><BookOpenCheck size={17} /> Start learning</button>
+            <button className="pmp-secondary" onClick={() => onStart(formId, 'simulation')}><Clock3 size={17} /> Timed simulation</button>
           </div>
         </article>)}
       </section>
@@ -153,8 +153,8 @@ function Tutorial({ mode, onBack, onBegin }: { mode: ExamMode; onBack: () => voi
         <div><Highlighter size={24} /><strong>Highlight text</strong><p>Select words in the question and use Highlight to mark the current screen.</p></div>
         <div><Calculator size={24} /><strong>Use exam tools</strong><p>A calculator and private notes panel are available in the toolbar.</p></div>
       </div>
-      <div className="tutorial-notice"><strong>{mode === 'simulation' ? 'Strict simulation' : 'Guided study'} mode</strong><p>{mode === 'simulation' ? 'Correctness and explanations remain hidden until all sections are submitted.' : 'Use Check answer after each response to receive the rationale and AI coaching.'}</p></div>
-      <div className="tutorial-actions"><button className="pmp-secondary" onClick={onBack}><ArrowLeft size={17} /> Test library</button><button className="pmp-primary" onClick={onBegin}>Begin exam <ArrowRight size={17} /></button></div>
+      <div className="tutorial-notice"><strong>{mode === 'simulation' ? 'Strict simulation' : 'Learning mode'}</strong><p>{mode === 'simulation' ? 'Correctness and explanations remain hidden until all sections are submitted.' : 'This mode is untimed. Submit each response to see whether it is correct, read the rationale, and receive personalized AI coaching.'}</p></div>
+      <div className="tutorial-actions"><button className="pmp-secondary" onClick={onBack}><ArrowLeft size={17} /> Test library</button><button className="pmp-primary" onClick={onBegin}>{mode === 'simulation' ? 'Begin exam' : 'Begin learning'} <ArrowRight size={17} /></button></div>
     </main>
   </div>
 }
@@ -192,14 +192,16 @@ function CasePanel({ caseStudy }: { caseStudy: PmpCase }) {
   return <aside className={`case-panel ${open ? 'open' : ''}`}><button className="case-toggle" onClick={() => setOpen((value) => !value)}><span>Case study: {caseStudy.title}</span><ChevronDown size={18} /></button>{open && <div className="case-content"><p>{caseStudy.overview}</p><table><tbody>{caseStudy.facts.map(([label, value]) => <tr key={label}><th>{label}</th><td>{value}</td></tr>)}</tbody></table></div>}</aside>
 }
 
-function PointAndClick({ question, answer, marker, onAnswer, onMarker }: {
+function PointAndClick({ question, answer, marker, disabled, onAnswer, onMarker }: {
   question: PmpQuestion
   answer: PmpAnswer | undefined
   marker: PointMarker | undefined
+  disabled: boolean
   onAnswer: (answer: PmpAnswer) => void
   onMarker: (marker: PointMarker) => void
 }) {
   const choosePoint = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (disabled) return
     const svg = event.currentTarget.querySelector('svg')
     if (!svg) return
     const rect = svg.getBoundingClientRect()
@@ -225,15 +227,16 @@ function PointAndClick({ question, answer, marker, onAnswer, onMarker }: {
     }
     onAnswer(token); onMarker(markerValue)
   }
-  return <div><div className="point-instruction">Click directly on the exhibit to place your response.</div><div className="point-wrap"><div className="point-exhibit" onClick={choosePoint} dangerouslySetInnerHTML={{ __html: question.visual_html }} />{marker && <span className="point-marker" style={{ left: `${marker.x}%`, top: `${marker.y}%` }}><Check size={14} /></span>}</div><p className="selection-readout">Selected: <strong>{typeof answer === 'string' ? answer : 'None'}</strong></p></div>
+  return <div><div className="point-instruction">Click directly on the exhibit to place your response.</div><div className="point-wrap"><div className={`point-exhibit ${disabled ? 'disabled' : ''}`} onClick={choosePoint} dangerouslySetInnerHTML={{ __html: question.visual_html }} />{marker && <span className="point-marker" style={{ left: `${marker.x}%`, top: `${marker.y}%` }}><Check size={14} /></span>}</div><p className="selection-readout">Selected: <strong>{typeof answer === 'string' ? answer : 'None'}</strong></p></div>
 }
 
-function QuestionResponse({ question, answer, eliminated, strikeMode, marker, onAnswer, onEliminated, onMarker }: {
+function QuestionResponse({ question, answer, eliminated, strikeMode, marker, disabled, onAnswer, onEliminated, onMarker }: {
   question: PmpQuestion
   answer: PmpAnswer | undefined
   eliminated: string[]
   strikeMode: boolean
   marker: PointMarker | undefined
+  disabled: boolean
   onAnswer: (answer: PmpAnswer) => void
   onEliminated: (codes: string[]) => void
   onMarker: (marker: PointMarker) => void
@@ -242,13 +245,13 @@ function QuestionResponse({ question, answer, eliminated, strikeMode, marker, on
   const pullDown = useMemo(() => question.qformat === 'Pull-down list' ? parsePullDown(question) : null, [question])
   if (matching) {
     const current = answer && !Array.isArray(answer) && typeof answer === 'object' ? answer : {}
-    return <div className="matching-response">{matching.rows.map((row) => <label key={row.id}><span><b>{row.id}</b>{row.prompt}</span><select value={current[row.id] ?? ''} onChange={(event) => onAnswer({ ...current, [row.id]: event.target.value })}><option value="">Select response</option>{matching.choices.map((choice) => <option value={choice.code} key={choice.code}>{choice.code}. {choice.label}</option>)}</select></label>)}</div>
+    return <div className="matching-response">{matching.rows.map((row) => <label key={row.id}><span><b>{row.id}</b>{row.prompt}</span><select disabled={disabled} value={current[row.id] ?? ''} onChange={(event) => onAnswer({ ...current, [row.id]: event.target.value })}><option value="">Select response</option>{matching.choices.map((choice) => <option value={choice.code} key={choice.code}>{choice.code}. {choice.label}</option>)}</select></label>)}</div>
   }
   if (pullDown) {
     const current = answer && !Array.isArray(answer) && typeof answer === 'object' ? answer : {}
-    return <div className="pull-down-response"><p>{pullDown.sentence}</p>{pullDown.rows.map((row) => <label key={row.id}><span>Blank {row.id}</span><select value={current[row.id] ?? ''} onChange={(event) => onAnswer({ ...current, [row.id]: event.target.value })}><option value="">Choose an answer</option>{row.choices.map((choice) => <option value={choice} key={choice}>{choice}</option>)}</select></label>)}</div>
+    return <div className="pull-down-response"><p>{pullDown.sentence}</p>{pullDown.rows.map((row) => <label key={row.id}><span>Blank {row.id}</span><select disabled={disabled} value={current[row.id] ?? ''} onChange={(event) => onAnswer({ ...current, [row.id]: event.target.value })}><option value="">Choose an answer</option>{row.choices.map((choice) => <option value={choice} key={choice}>{choice}</option>)}</select></label>)}</div>
   }
-  if (question.qformat === 'Point and click') return <PointAndClick question={question} answer={answer} marker={marker} onAnswer={onAnswer} onMarker={onMarker} />
+  if (question.qformat === 'Point and click') return <PointAndClick question={question} answer={answer} marker={marker} disabled={disabled} onAnswer={onAnswer} onMarker={onMarker} />
   const multiple = question.qformat === 'Multiple-response'
   const selected = multiple ? (Array.isArray(answer) ? answer : []) : typeof answer === 'string' ? [answer] : []
   const maxSelections = multiple ? question.correct.split(',').length : 1
@@ -256,7 +259,7 @@ function QuestionResponse({ question, answer, eliminated, strikeMode, marker, on
     const code = optionCode(option, index)
     const isSelected = selected.includes(code)
     const isEliminated = eliminated.includes(code)
-    return <button type="button" key={code} className={`${isSelected ? 'selected' : ''} ${isEliminated ? 'eliminated' : ''}`} onClick={() => {
+    return <button type="button" disabled={disabled} key={code} className={`${isSelected ? 'selected' : ''} ${isEliminated ? 'eliminated' : ''}`} onClick={() => {
       if (strikeMode) { onEliminated(isEliminated ? eliminated.filter((value) => value !== code) : [...eliminated, code]); return }
       if (multiple) {
         if (isSelected) onAnswer(selected.filter((value) => value !== code))
@@ -268,7 +271,7 @@ function QuestionResponse({ question, answer, eliminated, strikeMode, marker, on
 
 function FeedbackPanel({ question, answer, feedback, loading, onRequest }: { question: PmpQuestion; answer: PmpAnswer | undefined; feedback?: string; loading: boolean; onRequest: () => void }) {
   const correct = isCorrect(question, answer)
-  return <section className={`feedback-panel ${correct ? 'correct' : 'incorrect'}`}><header>{correct ? <CheckCircle2 size={21} /> : <CircleAlert size={21} />}<strong>{correct ? 'Correct' : 'Review this answer'}</strong><span>{question.correct}</span></header><p>{feedback || question.rationale}</p>{!feedback && <button className="ai-feedback-button" disabled={loading} onClick={onRequest}><Sparkles size={16} />{loading ? 'Preparing coaching…' : 'Ask AI coach for a deeper explanation'}</button>}</section>
+  return <section className={`feedback-panel ${correct ? 'correct' : 'incorrect'}`} aria-live="polite"><header>{correct ? <CheckCircle2 size={21} /> : <CircleAlert size={21} />}<strong>{correct ? 'Correct' : 'Incorrect'}</strong><span>{loading ? 'AI coach is analyzing your choice' : 'Answer submitted'}</span></header><div className="feedback-answers"><div><span>Your answer</span><strong>{answerLabel(question, answer)}</strong></div><div className="best-answer"><span>Best answer</span><strong>{correctResponseLabel(question)}</strong></div></div><div className="feedback-explanation"><h2>{correct ? 'Why this answer is right' : 'Why this answer needs another look'}</h2><p>{feedback || question.rationale}</p></div>{loading && <div className="ai-feedback-status"><Sparkles size={16} /> AI coach is preparing a personalized explanation…</div>}{!feedback && !loading && <button className="ai-feedback-button" onClick={onRequest}><Sparkles size={16} /> Try AI explanation again</button>}</section>
 }
 
 function ExamHeader({ session, timeLeft, timerVisible, strikeMode, onTool, onFlag, onToggleTimer, onStrike, onHighlight }: {
@@ -282,7 +285,7 @@ function ExamHeader({ session, timeLeft, timerVisible, strikeMode, onTool, onFla
   onStrike: () => void
   onHighlight: () => void
 }) {
-  return <><header className="exam-top"><Brand /><div className="exam-title">Practice Test {session.formId}<small>{session.mode === 'simulation' ? 'Strict simulation' : 'Guided study'}</small></div><div className="timer-block"><Clock3 size={19} />{timerVisible ? <strong>{formatTime(timeLeft)}</strong> : <strong>Hidden</strong>}</div></header><nav className="exam-tools" aria-label="Exam tools"><button onClick={() => onTool('navigator')}><Menu size={17} /> Navigator</button><button onClick={onFlag}><Flag size={17} /> Flag</button><button className={strikeMode ? 'active' : ''} onClick={onStrike}><Strikethrough size={17} /> Strikeout</button><button onClick={onHighlight}><Highlighter size={17} /> Highlight</button><button onClick={() => onTool('calculator')}><Calculator size={17} /> Calculator</button><button onClick={() => onTool('notes')}><NotebookPen size={17} /> Notes</button><button onClick={() => onTool('help')}><HelpCircle size={17} /> Help</button><button onClick={onToggleTimer}>{timerVisible ? <EyeOff size={17} /> : <Eye size={17} />}{timerVisible ? 'Hide time' : 'Show time'}</button></nav></>
+  return <><header className="exam-top"><Brand /><div className="exam-title">Practice Test {session.formId}<small>{session.mode === 'simulation' ? 'Strict simulation' : 'Learning mode'}</small></div><div className="timer-block"><Clock3 size={19} />{session.mode === 'study' ? <strong>Untimed</strong> : timerVisible ? <strong>{formatTime(timeLeft)}</strong> : <strong>Hidden</strong>}</div></header><nav className="exam-tools" aria-label="Exam tools"><button onClick={() => onTool('navigator')}><Menu size={17} /> Navigator</button><button onClick={onFlag}><Flag size={17} /> Flag</button><button className={strikeMode ? 'active' : ''} onClick={onStrike}><Strikethrough size={17} /> Strikeout</button><button onClick={onHighlight}><Highlighter size={17} /> Highlight</button><button onClick={() => onTool('calculator')}><Calculator size={17} /> Calculator</button><button onClick={() => onTool('notes')}><NotebookPen size={17} /> Notes</button><button onClick={() => onTool('help')}><HelpCircle size={17} /> Help</button>{session.mode === 'simulation' && <button onClick={onToggleTimer}>{timerVisible ? <EyeOff size={17} /> : <Eye size={17} />}{timerVisible ? 'Hide time' : 'Show time'}</button>}</nav></>
 }
 
 function SectionReview({ form, session, onJump, onEnd }: { form: PmpForm; session: ExamSession; onJump: (index: number) => void; onEnd: () => void }) {
@@ -334,22 +337,23 @@ export function PmpSimulator() {
   const [strikeMode, setStrikeMode] = useState(false)
   const [tool, setTool] = useState<ToolModal>('none')
   const [notes, setNotes] = useState('')
-  const [checked, setChecked] = useState<number[]>([])
-  const [feedback, setFeedback] = useState<Record<string, string>>({})
   const [feedbackLoading, setFeedbackLoading] = useState<number | null>(null)
   const questionAreaRef = useRef<HTMLElement>(null)
   const activeScreen = session?.screen
+  const activeMode = session?.mode
+  const submitted = session?.submitted ?? []
+  const feedback = session?.feedback ?? {}
 
   useEffect(() => { void loadPmpBank().then(setBank).catch((error: unknown) => setLoadError(error instanceof Error ? error.message : 'Unable to load the question bank.')) }, [])
   useEffect(() => { if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session)); else localStorage.removeItem(STORAGE_KEY) }, [session])
   useEffect(() => { window.scrollTo({ top: 0 }) }, [session?.screen])
   useEffect(() => {
-    if (!activeScreen || !['exam', 'section-review', 'break'].includes(activeScreen)) return
+    if (activeMode !== 'simulation' || !activeScreen || !['exam', 'section-review', 'break'].includes(activeScreen)) return
     const tick = () => {
       const tickNow = Date.now()
       setNow(tickNow)
       setSession((current) => {
-        if (!current || !['exam', 'section-review', 'break'].includes(current.screen)) return current
+        if (!current || current.mode !== 'simulation' || !['exam', 'section-review', 'break'].includes(current.screen)) return current
         if (current.screen === 'break' && current.breakDeadline && current.breakDeadline <= tickNow) {
           return { ...current, screen: 'exam', deadline: tickNow + current.remainingSeconds * 1000, breakDeadline: undefined }
         }
@@ -362,7 +366,7 @@ export function PmpSimulator() {
     tick()
     const timer = window.setInterval(tick, 1000)
     return () => window.clearInterval(timer)
-  }, [activeScreen])
+  }, [activeMode, activeScreen])
 
   const form = session && bank ? bank.forms[session.formId] : null
   const question = form?.questions[session?.currentIndex ?? 0]
@@ -372,13 +376,16 @@ export function PmpSimulator() {
   const startChoice = (formId: string, mode: ExamMode) => { setPending({ formId, mode }); setLanding('tutorial') }
   const begin = () => {
     if (!pending) return
-    setSession({ formId: pending.formId, mode: pending.mode, screen: 'exam', currentIndex: 0, sectionIndex: 0, answers: {}, flags: [], eliminated: {}, pointMarkers: {}, lockedThrough: -1, deadline: Date.now() + EXAM_SECONDS * 1000, remainingSeconds: EXAM_SECONDS, startedAt: Date.now() })
-    setChecked([]); setFeedback({}); setLanding('library')
+    setSession({ formId: pending.formId, mode: pending.mode, screen: 'exam', currentIndex: 0, sectionIndex: 0, answers: {}, submitted: [], feedback: {}, flags: [], eliminated: {}, pointMarkers: {}, lockedThrough: -1, deadline: Date.now() + EXAM_SECONDS * 1000, remainingSeconds: EXAM_SECONDS, startedAt: Date.now() })
+    setLanding('library')
   }
   const updateSession = (patch: Partial<ExamSession>) => setSession((current) => current ? { ...current, ...patch } : current)
   const setAnswer = (answer: PmpAnswer) => {
     if (!question) return
-    setSession((current) => current ? { ...current, answers: { ...current.answers, [String(question.number)]: answer } } : current)
+    setSession((current) => {
+      if (!current || (current.mode === 'study' && current.submitted?.includes(question.number))) return current
+      return { ...current, answers: { ...current.answers, [String(question.number)]: answer } }
+    })
   }
   const toggleFlag = () => {
     if (!question || !session) return
@@ -402,6 +409,7 @@ export function PmpSimulator() {
   const previous = () => { if (session) jump(session.currentIndex - 1) }
   const next = () => {
     if (!session) return
+    if (session.mode === 'study' && isAnswered(session.answers[String(question?.number)]) && question && !submitted.includes(question.number)) return
     const [, end] = SECTION_RANGES[session.sectionIndex] ?? [0, 179]
     if (session.currentIndex >= end) updateSession({ screen: 'section-review' })
     else jump(session.currentIndex + 1)
@@ -410,6 +418,10 @@ export function PmpSimulator() {
     if (!session) return
     const [, end] = SECTION_RANGES[session.sectionIndex] ?? [0, 179]
     if (session.sectionIndex === 2) { updateSession({ screen: 'results', completedAt: Date.now(), remainingSeconds: timeLeft }); return }
+    if (session.mode === 'study') {
+      updateSession({ screen: 'exam', lockedThrough: end, currentIndex: end + 1, sectionIndex: session.sectionIndex + 1 })
+      return
+    }
     updateSession({ screen: 'break', lockedThrough: end, currentIndex: end + 1, sectionIndex: session.sectionIndex + 1, remainingSeconds: timeLeft, deadline: 0, breakDeadline: Date.now() + 600_000 })
   }
   const resumeFromBreak = () => { if (session) updateSession({ screen: 'exam', deadline: Date.now() + session.remainingSeconds * 1000, breakDeadline: undefined }) }
@@ -421,14 +433,14 @@ export function PmpSimulator() {
       const response = await fetch('/api/pmp-feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: target.stem, options: target.options, selected: answerPayload(target, answer), correct: target.correct, rationale: target.rationale, domain: target.domain, task: target.task_title, approach: target.approach }) })
       if (!response.ok) throw new Error('AI feedback unavailable')
       const data = await response.json() as { feedback?: string }
-      if (data.feedback) setFeedback((current) => ({ ...current, [String(target.number)]: data.feedback ?? target.rationale }))
+      if (data.feedback) setSession((current) => current ? { ...current, feedback: { ...current.feedback, [String(target.number)]: data.feedback ?? target.rationale } } : current)
     } catch {
-      setFeedback((current) => ({ ...current, [String(target.number)]: target.rationale }))
+      setSession((current) => current ? { ...current, feedback: { ...current.feedback, [String(target.number)]: target.rationale } } : current)
     } finally { setFeedbackLoading(null) }
   }
   const checkAnswer = () => {
     if (!question || !isAnswered(session?.answers[String(question.number)])) return
-    setChecked((current) => current.includes(question.number) ? current : [...current, question.number])
+    setSession((current) => current ? { ...current, submitted: current.submitted?.includes(question.number) ? current.submitted : [...(current.submitted ?? []), question.number] } : current)
     void requestFeedback(question)
   }
   const applyHighlight = () => {
@@ -451,10 +463,10 @@ export function PmpSimulator() {
     {session.screen === 'section-review' ? <SectionReview form={form} session={session} onJump={jump} onEnd={endSection} /> : question && <main className="question-shell" ref={questionAreaRef}>
       <div className="question-status"><span>Question {question.number} of 180</span><span>Section {session.sectionIndex + 1} of 3</span><span>{question.qformat}</span>{session.flags.includes(question.number) && <span className="flagged"><Flag size={13} /> Flagged</span>}</div>
       {question.case_id && <CasePanel caseStudy={form.cases.find((item) => item.case_id === question.case_id) ?? form.cases[0]!} />}
-      <section className="question-card"><p className="question-instruction">{question.instruction}</p><h1>{question.stem}</h1>{question.visual_html && ['Graphic-based'].includes(question.qformat) && <div className="question-visual" dangerouslySetInnerHTML={{ __html: question.visual_html }} />}<QuestionResponse question={question} answer={session.answers[String(question.number)]} eliminated={session.eliminated[String(question.number)] ?? []} strikeMode={strikeMode} marker={session.pointMarkers[String(question.number)]} onAnswer={setAnswer} onEliminated={setEliminated} onMarker={setPointMarker} />
-        {session.mode === 'study' && checked.includes(question.number) && <FeedbackPanel question={question} answer={session.answers[String(question.number)]} feedback={feedback[String(question.number)]} loading={feedbackLoading === question.number} onRequest={() => void requestFeedback(question)} />}
+      <section className="question-card"><p className="question-instruction">{question.instruction}</p><h1>{question.stem}</h1>{question.visual_html && ['Graphic-based'].includes(question.qformat) && <div className="question-visual" dangerouslySetInnerHTML={{ __html: question.visual_html }} />}<QuestionResponse question={question} answer={session.answers[String(question.number)]} eliminated={session.eliminated[String(question.number)] ?? []} strikeMode={strikeMode} marker={session.pointMarkers[String(question.number)]} disabled={session.mode === 'study' && submitted.includes(question.number)} onAnswer={setAnswer} onEliminated={setEliminated} onMarker={setPointMarker} />
+        {session.mode === 'study' && submitted.includes(question.number) && <FeedbackPanel question={question} answer={session.answers[String(question.number)]} feedback={feedback[String(question.number)]} loading={feedbackLoading === question.number} onRequest={() => void requestFeedback(question)} />}
       </section>
-      <footer className="question-footer"><button className="pmp-secondary" disabled={session.currentIndex === (SECTION_RANGES[session.sectionIndex]?.[0] ?? 0)} onClick={previous}><ArrowLeft size={17} /> Previous</button><span className="progress-line"><i style={{ width: `${((session.currentIndex + 1) / 180) * 100}%` }} /></span>{session.mode === 'study' && !checked.includes(question.number) && <button className="pmp-secondary check-answer" disabled={!isAnswered(session.answers[String(question.number)])} onClick={checkAnswer}><Check size={17} /> Check answer</button>}<button className="pmp-primary" onClick={next}>{session.currentIndex === (SECTION_RANGES[session.sectionIndex]?.[1] ?? 179) ? 'Review section' : 'Next'} <ArrowRight size={17} /></button></footer>
+      <footer className="question-footer"><button className="pmp-secondary" disabled={session.currentIndex === (SECTION_RANGES[session.sectionIndex]?.[0] ?? 0)} onClick={previous}><ArrowLeft size={17} /> Previous</button><span className="progress-line"><i style={{ width: `${((session.currentIndex + 1) / 180) * 100}%` }} /></span>{session.mode === 'study' && !submitted.includes(question.number) && <button className="pmp-primary check-answer" disabled={!isAnswered(session.answers[String(question.number)])} onClick={checkAnswer}><Check size={17} /> Submit answer</button>}<button className={session.mode === 'study' && !submitted.includes(question.number) ? 'pmp-secondary' : 'pmp-primary'} disabled={session.mode === 'study' && isAnswered(session.answers[String(question.number)]) && !submitted.includes(question.number)} onClick={next}>{session.currentIndex === (SECTION_RANGES[session.sectionIndex]?.[1] ?? 179) ? 'Review section' : 'Next'} <ArrowRight size={17} /></button></footer>
     </main>}
     {tool === 'calculator' && <Modal title="Calculator" onClose={() => setTool('none')}><CalculatorTool /></Modal>}
     {tool === 'notes' && <Modal title="Private notes" onClose={() => setTool('none')}><textarea className="notes-area" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes are not included in your score." /></Modal>}
