@@ -12,6 +12,7 @@ An independent practice application aligned to the PMP Examination Content Outli
 - Single response, multiple response, matching, enhanced matching, graphic, point-and-click, and pull-down interactions
 - Flags, navigator, strikeout, highlighting, calculator, and notes
 - Untimed learning mode with answer-by-answer correctness and AI explanations
+- All-question learning navigator, unrestricted backtracking, and saved resume progress
 - Strict timed simulation mode for full exam practice
 - Exact answer-key scoring with ten hidden practice pretest positions
 - Domain, delivery-approach, and item-format diagnostics

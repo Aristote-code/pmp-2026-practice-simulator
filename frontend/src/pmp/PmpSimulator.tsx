@@ -16,6 +16,7 @@ import {
   Grid3X3,
   HelpCircle,
   Highlighter,
+  House,
   LockKeyhole,
   Menu,
   NotebookPen,
@@ -42,6 +43,12 @@ import type {
 const STORAGE_KEY = 'pmp-practice-session-v1'
 const EXAM_SECONDS = 240 * 60
 const SECTION_RANGES: Array<[number, number]> = [[0, 19], [20, 99], [100, 179]]
+
+function sectionForIndex(index: number): number {
+  if (index < 20) return 0
+  if (index < 100) return 1
+  return 2
+}
 
 type LandingScreen = 'library' | 'tutorial'
 type ToolModal = 'none' | 'calculator' | 'notes' | 'help' | 'navigator'
@@ -180,7 +187,7 @@ function CalculatorTool() {
 }
 
 function Navigator({ form, session, onJump, onClose }: { form: PmpForm; session: ExamSession; onJump: (index: number) => void; onClose: () => void }) {
-  const [start, end] = SECTION_RANGES[session.sectionIndex] ?? [0, 179]
+  const [start, end] = session.mode === 'study' ? [0, 179] : (SECTION_RANGES[session.sectionIndex] ?? [0, 179])
   return <div className="navigator"><div className="nav-legend"><span><i className="answered" /> Answered</span><span><i /> Unanswered</span><span><Flag size={13} /> Flagged</span></div><div className="question-grid">{form.questions.slice(start, end + 1).map((question, offset) => {
     const index = start + offset
     return <button key={question.number} className={`${index === session.currentIndex ? 'current' : ''} ${isAnswered(session.answers[String(question.number)]) ? 'answered' : ''}`} onClick={() => { onJump(index); onClose() }}><span>{question.number}</span>{session.flags.includes(question.number) && <Flag size={11} />}</button>
@@ -274,7 +281,7 @@ function FeedbackPanel({ question, answer, feedback, loading, onRequest }: { que
   return <section className={`feedback-panel ${correct ? 'correct' : 'incorrect'}`} aria-live="polite"><header>{correct ? <CheckCircle2 size={21} /> : <CircleAlert size={21} />}<strong>{correct ? 'Correct' : 'Incorrect'}</strong><span>{loading ? 'AI coach is analyzing your choice' : 'Answer submitted'}</span></header><div className="feedback-answers"><div><span>Your answer</span><strong>{answerLabel(question, answer)}</strong></div><div className="best-answer"><span>Best answer</span><strong>{correctResponseLabel(question)}</strong></div></div><div className="feedback-explanation"><h2>{correct ? 'Why this answer is right' : 'Why this answer needs another look'}</h2><p>{feedback || question.rationale}</p></div>{loading && <div className="ai-feedback-status"><Sparkles size={16} /> AI coach is preparing a personalized explanation…</div>}{!feedback && !loading && <button className="ai-feedback-button" onClick={onRequest}><Sparkles size={16} /> Try AI explanation again</button>}</section>
 }
 
-function ExamHeader({ session, timeLeft, timerVisible, strikeMode, onTool, onFlag, onToggleTimer, onStrike, onHighlight }: {
+function ExamHeader({ session, timeLeft, timerVisible, strikeMode, onTool, onFlag, onToggleTimer, onStrike, onHighlight, onExit }: {
   session: ExamSession
   timeLeft: number
   timerVisible: boolean
@@ -284,8 +291,9 @@ function ExamHeader({ session, timeLeft, timerVisible, strikeMode, onTool, onFla
   onToggleTimer: () => void
   onStrike: () => void
   onHighlight: () => void
+  onExit: () => void
 }) {
-  return <><header className="exam-top"><Brand /><div className="exam-title">Practice Test {session.formId}<small>{session.mode === 'simulation' ? 'Strict simulation' : 'Learning mode'}</small></div><div className="timer-block"><Clock3 size={19} />{session.mode === 'study' ? <strong>Untimed</strong> : timerVisible ? <strong>{formatTime(timeLeft)}</strong> : <strong>Hidden</strong>}</div></header><nav className="exam-tools" aria-label="Exam tools"><button onClick={() => onTool('navigator')}><Menu size={17} /> Navigator</button><button onClick={onFlag}><Flag size={17} /> Flag</button><button className={strikeMode ? 'active' : ''} onClick={onStrike}><Strikethrough size={17} /> Strikeout</button><button onClick={onHighlight}><Highlighter size={17} /> Highlight</button><button onClick={() => onTool('calculator')}><Calculator size={17} /> Calculator</button><button onClick={() => onTool('notes')}><NotebookPen size={17} /> Notes</button><button onClick={() => onTool('help')}><HelpCircle size={17} /> Help</button>{session.mode === 'simulation' && <button onClick={onToggleTimer}>{timerVisible ? <EyeOff size={17} /> : <Eye size={17} />}{timerVisible ? 'Hide time' : 'Show time'}</button>}</nav></>
+  return <><header className="exam-top"><Brand /><div className="exam-title">Practice Test {session.formId}<small>{session.mode === 'simulation' ? 'Strict simulation' : 'Learning mode'}</small></div><div className="timer-block"><Clock3 size={19} />{session.mode === 'study' ? <strong>Untimed</strong> : timerVisible ? <strong>{formatTime(timeLeft)}</strong> : <strong>Hidden</strong>}</div></header><nav className="exam-tools" aria-label="Exam tools"><button onClick={onExit}><House size={17} /> Save &amp; exit</button><button onClick={() => onTool('navigator')}><Menu size={17} /> Navigator</button><button onClick={onFlag}><Flag size={17} /> Flag</button><button className={strikeMode ? 'active' : ''} onClick={onStrike}><Strikethrough size={17} /> Strikeout</button><button onClick={onHighlight}><Highlighter size={17} /> Highlight</button><button onClick={() => onTool('calculator')}><Calculator size={17} /> Calculator</button><button onClick={() => onTool('notes')}><NotebookPen size={17} /> Notes</button><button onClick={() => onTool('help')}><HelpCircle size={17} /> Help</button>{session.mode === 'simulation' && <button onClick={onToggleTimer}>{timerVisible ? <EyeOff size={17} /> : <Eye size={17} />}{timerVisible ? 'Hide time' : 'Show time'}</button>}</nav></>
 }
 
 function SectionReview({ form, session, onJump, onEnd }: { form: PmpForm; session: ExamSession; onJump: (index: number) => void; onEnd: () => void }) {
@@ -332,6 +340,7 @@ export function PmpSimulator() {
   const [landing, setLanding] = useState<LandingScreen>('library')
   const [pending, setPending] = useState<{ formId: string; mode: ExamMode } | null>(null)
   const [session, setSession] = useState<ExamSession | null>(() => readSession())
+  const [showLibrary, setShowLibrary] = useState(false)
   const [now, setNow] = useState(0)
   const [timerVisible, setTimerVisible] = useState(true)
   const [strikeMode, setStrikeMode] = useState(false)
@@ -377,7 +386,7 @@ export function PmpSimulator() {
   const begin = () => {
     if (!pending) return
     setSession({ formId: pending.formId, mode: pending.mode, screen: 'exam', currentIndex: 0, sectionIndex: 0, answers: {}, submitted: [], feedback: {}, flags: [], eliminated: {}, pointMarkers: {}, lockedThrough: -1, deadline: Date.now() + EXAM_SECONDS * 1000, remainingSeconds: EXAM_SECONDS, startedAt: Date.now() })
-    setLanding('library')
+    setLanding('library'); setShowLibrary(false)
   }
   const updateSession = (patch: Partial<ExamSession>) => setSession((current) => current ? { ...current, ...patch } : current)
   const setAnswer = (answer: PmpAnswer) => {
@@ -401,6 +410,12 @@ export function PmpSimulator() {
   }
   const jump = (index: number) => {
     if (!session) return
+    if (session.mode === 'study') {
+      if (index < 0 || index > 179) return
+      updateSession({ currentIndex: index, sectionIndex: sectionForIndex(index), screen: 'exam' })
+      window.scrollTo({ top: 0 })
+      return
+    }
     const [start, end] = SECTION_RANGES[session.sectionIndex] ?? [0, 179]
     if (index < start || index > end || index <= session.lockedThrough) return
     updateSession({ currentIndex: index, screen: 'exam' })
@@ -410,6 +425,11 @@ export function PmpSimulator() {
   const next = () => {
     if (!session) return
     if (session.mode === 'study' && isAnswered(session.answers[String(question?.number)]) && question && !submitted.includes(question.number)) return
+    if (session.mode === 'study') {
+      if (session.currentIndex >= 179) updateSession({ screen: 'results', completedAt: Date.now() })
+      else jump(session.currentIndex + 1)
+      return
+    }
     const [, end] = SECTION_RANGES[session.sectionIndex] ?? [0, 179]
     if (session.currentIndex >= end) updateSession({ screen: 'section-review' })
     else jump(session.currentIndex + 1)
@@ -419,7 +439,7 @@ export function PmpSimulator() {
     const [, end] = SECTION_RANGES[session.sectionIndex] ?? [0, 179]
     if (session.sectionIndex === 2) { updateSession({ screen: 'results', completedAt: Date.now(), remainingSeconds: timeLeft }); return }
     if (session.mode === 'study') {
-      updateSession({ screen: 'exam', lockedThrough: end, currentIndex: end + 1, sectionIndex: session.sectionIndex + 1 })
+      updateSession({ screen: 'exam', currentIndex: end + 1, sectionIndex: session.sectionIndex + 1 })
       return
     }
     updateSession({ screen: 'break', lockedThrough: end, currentIndex: end + 1, sectionIndex: session.sectionIndex + 1, remainingSeconds: timeLeft, deadline: 0, breakDeadline: Date.now() + 600_000 })
@@ -449,28 +469,30 @@ export function PmpSimulator() {
     try { const mark = document.createElement('mark'); selection.getRangeAt(0).surroundContents(mark); selection.removeAllRanges() } catch { /* Complex selections remain unchanged. */ }
   }
   const restart = () => { if (!session) return; setPending({ formId: session.formId, mode: session.mode }); setSession(null); setLanding('tutorial') }
-  const returnToLibrary = () => { setSession(null); setPending(null); setLanding('library') }
+  const returnToLibrary = () => { setSession(null); setPending(null); setLanding('library'); setShowLibrary(false) }
+  const saveAndExit = () => { setTool('none'); setPending(null); setLanding('library'); setShowLibrary(true) }
 
   if (loadError) return <ErrorScreen message={loadError} />
   if (!bank) return <LoadingScreen />
+  if (showLibrary) return landing === 'tutorial' && pending ? <Tutorial mode={pending.mode} onBack={() => setLanding('library')} onBegin={begin} /> : <Library bank={bank} saved={session} onStart={startChoice} onResume={() => setShowLibrary(false)} />
   if (!session) return landing === 'tutorial' && pending ? <Tutorial mode={pending.mode} onBack={() => setLanding('library')} onBegin={begin} /> : <Library bank={bank} saved={readSession()} onStart={startChoice} onResume={() => setSession(readSession())} />
   if (!form) return <ErrorScreen message="This saved practice form is no longer available." />
   if (session.screen === 'break') return <BreakScreen number={session.sectionIndex} breakLeft={breakLeft} onResume={resumeFromBreak} />
   if (session.screen === 'results') return <Results form={form} session={session} onReview={() => updateSession({ screen: 'review' })} onLibrary={returnToLibrary} onRestart={restart} />
   if (session.screen === 'review') return <AnswerReview form={form} session={session} feedback={feedback} feedbackLoading={feedbackLoading} onFeedback={(target) => void requestFeedback(target)} onResults={() => updateSession({ screen: 'results' })} />
 
-  return <div className="exam-screen"><ExamHeader session={session} timeLeft={timeLeft} timerVisible={timerVisible} strikeMode={strikeMode} onTool={setTool} onFlag={toggleFlag} onToggleTimer={() => setTimerVisible((value) => !value)} onStrike={() => setStrikeMode((value) => !value)} onHighlight={applyHighlight} />
+  return <div className="exam-screen"><ExamHeader session={session} timeLeft={timeLeft} timerVisible={timerVisible} strikeMode={strikeMode} onTool={setTool} onFlag={toggleFlag} onToggleTimer={() => setTimerVisible((value) => !value)} onStrike={() => setStrikeMode((value) => !value)} onHighlight={applyHighlight} onExit={saveAndExit} />
     {session.screen === 'section-review' ? <SectionReview form={form} session={session} onJump={jump} onEnd={endSection} /> : question && <main className="question-shell" ref={questionAreaRef}>
       <div className="question-status"><span>Question {question.number} of 180</span><span>Section {session.sectionIndex + 1} of 3</span><span>{question.qformat}</span>{session.flags.includes(question.number) && <span className="flagged"><Flag size={13} /> Flagged</span>}</div>
       {question.case_id && <CasePanel caseStudy={form.cases.find((item) => item.case_id === question.case_id) ?? form.cases[0]!} />}
       <section className="question-card"><p className="question-instruction">{question.instruction}</p><h1>{question.stem}</h1>{question.visual_html && ['Graphic-based'].includes(question.qformat) && <div className="question-visual" dangerouslySetInnerHTML={{ __html: question.visual_html }} />}<QuestionResponse question={question} answer={session.answers[String(question.number)]} eliminated={session.eliminated[String(question.number)] ?? []} strikeMode={strikeMode} marker={session.pointMarkers[String(question.number)]} disabled={session.mode === 'study' && submitted.includes(question.number)} onAnswer={setAnswer} onEliminated={setEliminated} onMarker={setPointMarker} />
         {session.mode === 'study' && submitted.includes(question.number) && <FeedbackPanel question={question} answer={session.answers[String(question.number)]} feedback={feedback[String(question.number)]} loading={feedbackLoading === question.number} onRequest={() => void requestFeedback(question)} />}
       </section>
-      <footer className="question-footer"><button className="pmp-secondary" disabled={session.currentIndex === (SECTION_RANGES[session.sectionIndex]?.[0] ?? 0)} onClick={previous}><ArrowLeft size={17} /> Previous</button><span className="progress-line"><i style={{ width: `${((session.currentIndex + 1) / 180) * 100}%` }} /></span>{session.mode === 'study' && !submitted.includes(question.number) && <button className="pmp-primary check-answer" disabled={!isAnswered(session.answers[String(question.number)])} onClick={checkAnswer}><Check size={17} /> Submit answer</button>}<button className={session.mode === 'study' && !submitted.includes(question.number) ? 'pmp-secondary' : 'pmp-primary'} disabled={session.mode === 'study' && isAnswered(session.answers[String(question.number)]) && !submitted.includes(question.number)} onClick={next}>{session.currentIndex === (SECTION_RANGES[session.sectionIndex]?.[1] ?? 179) ? 'Review section' : 'Next'} <ArrowRight size={17} /></button></footer>
+      <footer className="question-footer"><button className="pmp-secondary" disabled={session.mode === 'study' ? session.currentIndex === 0 : session.currentIndex === (SECTION_RANGES[session.sectionIndex]?.[0] ?? 0)} onClick={previous}><ArrowLeft size={17} /> Previous</button><span className="progress-line"><i style={{ width: `${((session.currentIndex + 1) / 180) * 100}%` }} /></span>{session.mode === 'study' && !submitted.includes(question.number) && <button className="pmp-primary check-answer" disabled={!isAnswered(session.answers[String(question.number)])} onClick={checkAnswer}><Check size={17} /> Submit answer</button>}<button className={session.mode === 'study' && !submitted.includes(question.number) ? 'pmp-secondary' : 'pmp-primary'} disabled={session.mode === 'study' && isAnswered(session.answers[String(question.number)]) && !submitted.includes(question.number)} onClick={next}>{session.mode === 'study' ? session.currentIndex === 179 ? 'Finish learning' : 'Next' : session.currentIndex === (SECTION_RANGES[session.sectionIndex]?.[1] ?? 179) ? 'Review section' : 'Next'} <ArrowRight size={17} /></button></footer>
     </main>}
     {tool === 'calculator' && <Modal title="Calculator" onClose={() => setTool('none')}><CalculatorTool /></Modal>}
     {tool === 'notes' && <Modal title="Private notes" onClose={() => setTool('none')}><textarea className="notes-area" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes are not included in your score." /></Modal>}
-    {tool === 'help' && <Modal title="Exam help" onClose={() => setTool('none')}><div className="help-list"><p><b>Navigator:</b> open any unlocked question in the current section.</p><p><b>Flag:</b> mark the current question for section review.</p><p><b>Strikeout:</b> activate the tool, then click an answer to cross it out.</p><p><b>Highlight:</b> select question text, then click Highlight.</p><p><b>Breaks:</b> previous questions lock when you end a section.</p></div></Modal>}
-    {tool === 'navigator' && <Modal title={`Section ${session.sectionIndex + 1} navigator`} onClose={() => setTool('none')} wide><Navigator form={form} session={session} onJump={jump} onClose={() => setTool('none')} /></Modal>}
+    {tool === 'help' && <Modal title="Exam help" onClose={() => setTool('none')}><div className="help-list"><p><b>Navigator:</b> {session.mode === 'study' ? 'open any of the 180 learning questions.' : 'open any unlocked question in the current section.'}</p><p><b>Flag:</b> mark the current question for later review.</p><p><b>Strikeout:</b> activate the tool, then click an answer to cross it out.</p><p><b>Highlight:</b> select question text, then click Highlight.</p><p><b>Save &amp; exit:</b> return to the library while keeping your current progress on this device.</p>{session.mode === 'simulation' && <p><b>Breaks:</b> previous questions lock when you end a section.</p>}</div></Modal>}
+    {tool === 'navigator' && <Modal title={session.mode === 'study' ? 'Learning navigator · all 180 questions' : `Section ${session.sectionIndex + 1} navigator`} onClose={() => setTool('none')} wide><Navigator form={form} session={session} onJump={jump} onClose={() => setTool('none')} /></Modal>}
   </div>
 }
