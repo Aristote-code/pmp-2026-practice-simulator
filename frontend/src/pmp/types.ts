@@ -26,7 +26,7 @@ export interface PmpQuestion {
   task_code: string
   task_title: string
   approach: PmpApproach
-  difficulty: 'Easy' | 'Medium' | 'Difficult'
+  difficulty: 'Easy' | 'Medium' | 'Hard'
   qformat: PmpFormat
   stem: string
   options: string[]

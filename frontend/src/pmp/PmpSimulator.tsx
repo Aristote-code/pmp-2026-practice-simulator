@@ -28,6 +28,8 @@ import {
   X,
 } from 'lucide-react'
 import { loadPmpBank, optionCode, optionText, parseMatching, parsePullDown } from './bank'
+import { DragDropBoard } from './DragDropBoard'
+import { DragDropLab } from './DragDropLab'
 import { PRETEST_NUMBERS, isAnswered, isCorrect, scoreExam } from './scoring'
 import type {
   ExamMode,
@@ -115,11 +117,12 @@ function ErrorScreen({ message }: { message: string }) {
   return <main className="pmp-loading"><CircleAlert size={42} /><h1>Question bank unavailable</h1><p>{message}</p><button className="pmp-primary" onClick={() => location.reload()}>Try again</button></main>
 }
 
-function Library({ bank, saved, onStart, onResume }: {
+function Library({ bank, saved, onStart, onResume, onDragLab }: {
   bank: PmpBank
   saved: ExamSession | null
   onStart: (formId: string, mode: ExamMode) => void
   onResume: () => void
+  onDragLab: () => void
 }) {
   return <div className="pmp-home">
     <header className="home-header"><Brand /><div className="unofficial-badge">Independent practice · not affiliated with PMI or Pearson VUE</div></header>
@@ -134,6 +137,10 @@ function Library({ bank, saved, onStart, onResume }: {
         <div><Play size={22} /><span><strong>Practice Test {saved.formId} is in progress</strong><small>Question {saved.currentIndex + 1} of 180 · {saved.mode === 'simulation' ? 'Strict simulation' : 'Learning mode'}</small></span></div>
         <button className="pmp-primary" onClick={onResume}>Resume <ArrowRight size={17} /></button>
       </section>}
+      <section className="drag-lab-band">
+        <div><Grid3X3 size={24} /><span><strong>110-question Drag &amp; Drop Lab</strong><small>Practice true matching, category sorting, repeated tiles, and unused distractors from your supplied study pack.</small></span></div>
+        <button className="pmp-primary" onClick={onDragLab}>Open lab <ArrowRight size={17} /></button>
+      </section>
       <section className="form-list" aria-label="Practice tests">
         {Object.entries(bank.forms).map(([formId, form]) => <article className="form-row" key={formId}>
           <div className="form-number">{formId}</div>
@@ -252,7 +259,14 @@ function QuestionResponse({ question, answer, eliminated, strikeMode, marker, di
   const pullDown = useMemo(() => question.qformat === 'Pull-down list' ? parsePullDown(question) : null, [question])
   if (matching) {
     const current = answer && !Array.isArray(answer) && typeof answer === 'object' ? answer : {}
-    return <div className="matching-response">{matching.rows.map((row) => <label key={row.id}><span><b>{row.id}</b>{row.prompt}</span><select disabled={disabled} value={current[row.id] ?? ''} onChange={(event) => onAnswer({ ...current, [row.id]: event.target.value })}><option value="">Select response</option>{matching.choices.map((choice) => <option value={choice.code} key={choice.code}>{choice.code}. {choice.label}</option>)}</select></label>)}</div>
+    const dragValue = Object.fromEntries(matching.rows.map((row) => [row.id, current[row.id] ? [current[row.id]] : []])) as Record<string, string[]>
+    return <DragDropBoard
+      choices={matching.choices.map((choice) => ({ id: choice.code, label: choice.label }))}
+      targets={matching.rows.map((row) => ({ id: row.id, prompt: row.prompt, capacity: 1 }))}
+      value={dragValue}
+      disabled={disabled}
+      onChange={(next) => onAnswer(Object.fromEntries(matching.rows.map((row) => [row.id, next[row.id]?.[0] ?? ''])))}
+    />
   }
   if (pullDown) {
     const current = answer && !Array.isArray(answer) && typeof answer === 'object' ? answer : {}
@@ -347,6 +361,7 @@ export function PmpSimulator() {
   const [tool, setTool] = useState<ToolModal>('none')
   const [notes, setNotes] = useState('')
   const [feedbackLoading, setFeedbackLoading] = useState<number | null>(null)
+  const [dragLabOpen, setDragLabOpen] = useState(false)
   const questionAreaRef = useRef<HTMLElement>(null)
   const activeScreen = session?.screen
   const activeMode = session?.mode
@@ -474,8 +489,9 @@ export function PmpSimulator() {
 
   if (loadError) return <ErrorScreen message={loadError} />
   if (!bank) return <LoadingScreen />
-  if (showLibrary) return landing === 'tutorial' && pending ? <Tutorial mode={pending.mode} onBack={() => setLanding('library')} onBegin={begin} /> : <Library bank={bank} saved={session} onStart={startChoice} onResume={() => setShowLibrary(false)} />
-  if (!session) return landing === 'tutorial' && pending ? <Tutorial mode={pending.mode} onBack={() => setLanding('library')} onBegin={begin} /> : <Library bank={bank} saved={readSession()} onStart={startChoice} onResume={() => setSession(readSession())} />
+  if (dragLabOpen) return <DragDropLab onBack={() => setDragLabOpen(false)} />
+  if (showLibrary) return landing === 'tutorial' && pending ? <Tutorial mode={pending.mode} onBack={() => setLanding('library')} onBegin={begin} /> : <Library bank={bank} saved={session} onStart={startChoice} onResume={() => setShowLibrary(false)} onDragLab={() => setDragLabOpen(true)} />
+  if (!session) return landing === 'tutorial' && pending ? <Tutorial mode={pending.mode} onBack={() => setLanding('library')} onBegin={begin} /> : <Library bank={bank} saved={readSession()} onStart={startChoice} onResume={() => setSession(readSession())} onDragLab={() => setDragLabOpen(true)} />
   if (!form) return <ErrorScreen message="This saved practice form is no longer available." />
   if (session.screen === 'break') return <BreakScreen number={session.sectionIndex} breakLeft={breakLeft} onResume={resumeFromBreak} />
   if (session.screen === 'results') return <Results form={form} session={session} onReview={() => updateSession({ screen: 'review' })} onLibrary={returnToLibrary} onRestart={restart} />

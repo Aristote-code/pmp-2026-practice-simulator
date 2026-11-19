@@ -2,10 +2,13 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { optionCode, parseMatching, parsePullDown } from './bank'
+import { isDragAnswerComplete, isDragAnswerCorrect } from './dragDrop'
 import { PRETEST_NUMBERS, isCorrect, scoreExam } from './scoring'
+import type { DragDropPack } from './dragDrop'
 import type { ExamSession, PmpAnswer, PmpBank, PmpQuestion } from './types'
 
 const bank = JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/pmp-question-bank.json'), 'utf8')) as PmpBank
+const dragPack = JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/pmp-drag-drop-drills.json'), 'utf8')) as DragDropPack
 const forms = Object.values(bank.forms)
 
 function mapAnswer(value: string): Record<string, string> {
@@ -88,6 +91,34 @@ describe('PMP 2026 question bank', () => {
       expect(result.correct).toBe(170)
       expect(result.total).toBe(170)
       expect(result.percent).toBe(100)
+    }
+  })
+
+  it('contains 110 complete drag-and-drop drills with valid answer maps', () => {
+    expect(dragPack.questions).toHaveLength(110)
+    expect(dragPack.questions.map((question) => question.id)).toEqual(Array.from({ length: 110 }, (_, index) => index + 1))
+    for (const question of dragPack.questions) {
+      const choiceIds = new Set(question.choices.map((choice) => choice.id))
+      expect(choiceIds.size).toBe(question.choices.length)
+      expect(question.targets.length).toBeGreaterThan(1)
+      expect(question.choices.length).toBeGreaterThanOrEqual(question.targets.length)
+      for (const target of question.targets) {
+        expect(question.correct[target.id]).toHaveLength(target.capacity)
+        for (const choiceId of question.correct[target.id] ?? []) expect(choiceIds.has(choiceId)).toBe(true)
+      }
+      expect(isDragAnswerComplete(question, question.correct)).toBe(true)
+      expect(isDragAnswerCorrect(question, question.correct)).toBe(true)
+    }
+  })
+
+  it('removes giveaway wording from incorrect scenario distractors', () => {
+    const formats = new Set(['Case or scenario', 'Graphic-based', 'Multiple-choice single response', 'Multiple-response'])
+    const giveaway = /\b(without|regardless|postpone|immediately|always|never)\b/i
+    for (const question of forms.flatMap((form) => form.questions).filter((item) => formats.has(item.qformat))) {
+      const correct = new Set(question.correct.split(',').map((code) => code.trim()))
+      question.options.forEach((option, index) => {
+        if (!correct.has(String.fromCharCode(65 + index))) expect(option).not.toMatch(giveaway)
+      })
     }
   })
 })
